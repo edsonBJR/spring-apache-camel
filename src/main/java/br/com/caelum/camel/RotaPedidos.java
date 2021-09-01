@@ -18,9 +18,7 @@ public class RotaPedidos {
 
 				from("file:pedidos?delay=5s&noop=true").
 				routeId("rota-pedidos").
-				// Aqui estamos falando para o Camel acessar a duas rotas simultaneamente e não pegar a saida de uma rota e jogar para outra rota.
 				multicast().
-				// A subrota no Camel o componente se chama direct
 					to("direct:http").
 					to("direct:soap");
 				
@@ -35,16 +33,17 @@ public class RotaPedidos {
 						setProperty("ebookId", xpath("/item/livro/codigo/text()")).
 					log("${id}").
 					marshal().xmljson().
-					log("${id} - ${body}").
+//					log("${id} - ${body}").
 					setHeader(Exchange.HTTP_METHOD, HttpMethods.GET).
 					setHeader(Exchange.HTTP_QUERY, simple("ebookId=${property.ebookId}&pedidoId=${property.pedidoId}&clienteId=${property.clienteId}")).
 				to("http4://localhost:8081/webservices/ebook/item");
 				
 				from("direct:soap").
 					routeId("rota-soap").
-					setBody(constant("<envelope>teste</envelope>")).
-				// Para caso de o endpoint não existir podemos utilizar o componente do Camel que se chama MOCK
-				to("mock:soap");
+					to("xslt:pedido-para-soap.xslt").
+					log("${body}").
+					setHeader(Exchange.CONTENT_TYPE, constant("text/xml")).
+				to("http4://localhost:8081/webservices/financeiro");
 			}
 		});
 		context.start();
